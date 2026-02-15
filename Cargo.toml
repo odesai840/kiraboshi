@@ -1,0 +1,12 @@
+[package]
+name = "kiraboshi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = "0.33.3"
+eframe = "0.33.3"
+kira = "0.11.0"
+rfd = "0.17.2"
+rand = "0.10.0"
+image = "0.25.9"
