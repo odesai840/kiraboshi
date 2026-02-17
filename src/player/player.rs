@@ -26,7 +26,8 @@ pub fn run() -> Result<(), eframe::Error> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([900.0, 620.0])
         .with_title("Kiraboshi")
-        .with_decorations(false);
+        .with_decorations(false)
+        .with_resizable(false);
 
     if let Some(icon) = load_icon() {
         viewport = viewport.with_icon(std::sync::Arc::new(icon));
@@ -58,6 +59,7 @@ pub struct KiraboshiApp {
     loop_mode: LoopMode,
     shuffle: bool,
     title_icon: Option<egui::TextureHandle>,
+    expected_size: Option<egui::Vec2>,
 }
 
 impl KiraboshiApp {
@@ -76,6 +78,7 @@ impl KiraboshiApp {
             loop_mode: LoopMode::Off,
             shuffle: false,
             title_icon,
+            expected_size: None,
         };
         app.audio.set_volume(app.volume);
         app.scan_songs();
@@ -215,6 +218,21 @@ impl KiraboshiApp {
 
 impl eframe::App for KiraboshiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let current_size = ctx.input(|i| {
+            i.viewport().inner_rect.map(|r| r.size())
+        });
+        if let Some(size) = current_size {
+            match self.expected_size {
+                None => self.expected_size = Some(size),
+                Some(expected) => {
+                    let diff = (size.x - expected.x).abs() + (size.y - expected.y).abs();
+                    if diff > 1.0 {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(expected));
+                    }
+                }
+            }
+        }
+
         ctx.request_repaint();
 
         if self.was_playing && self.audio.is_finished() {
