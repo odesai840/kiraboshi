@@ -10,8 +10,15 @@ enum LoopMode {
     All,
 }
 
+fn exe_dir() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
 fn load_icon() -> Option<egui::IconData> {
-    let icon_path = PathBuf::from("assets/icon.ico");
+    let icon_path = exe_dir().join("assets/icon.ico");
     let img = image::open(&icon_path).ok()?;
     let rgba = img.to_rgba8();
     let (w, h) = rgba.dimensions();
@@ -22,9 +29,12 @@ fn load_icon() -> Option<egui::IconData> {
     })
 }
 
-pub fn run() -> Result<(), eframe::Error> {
+pub fn run(file_arg: Option<PathBuf>) -> Result<(), eframe::Error> {
+    let standalone = file_arg.is_some();
+    let window_size = if standalone { [600.0, 320.0] } else { [900.0, 620.0] };
+
     let mut viewport = egui::ViewportBuilder::default()
-        .with_inner_size([900.0, 620.0])
+        .with_inner_size(window_size)
         .with_title("Kiraboshi")
         .with_decorations(false)
         .with_resizable(false);
@@ -42,7 +52,7 @@ pub fn run() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Kiraboshi",
         options,
-        Box::new(|cc| Ok(Box::new(KiraboshiApp::new(cc)))),
+        Box::new(move |cc| Ok(Box::new(KiraboshiApp::new(cc, file_arg)))),
     )
 }
 
@@ -60,33 +70,40 @@ pub struct KiraboshiApp {
     shuffle: bool,
     title_icon: Option<egui::TextureHandle>,
     expected_size: Option<egui::Vec2>,
+    standalone: bool,
 }
 
 impl KiraboshiApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, file_arg: Option<PathBuf>) -> Self {
         let title_icon = Self::load_title_icon(&cc.egui_ctx);
+        let standalone = file_arg.is_some();
         let mut app = Self {
             audio: AudioEngine::new(),
-            volume: 1.0,
+            volume: 0.5,
             error_message: None,
             seeking: false,
             seek_position: 0.0,
             seek_cooldown: 0,
-            playlist: Self::load_playlist(),
+            playlist: if standalone { Vec::new() } else { Self::load_playlist() },
             was_playing: false,
             drag_index: None,
             loop_mode: LoopMode::Off,
             shuffle: false,
             title_icon,
             expected_size: None,
+            standalone,
         };
         app.audio.set_volume(app.volume);
-        app.scan_songs();
+        if let Some(path) = file_arg {
+            let _ = app.audio.play_song(&path);
+        } else {
+            app.scan_songs();
+        }
         app
     }
 
     fn load_title_icon(ctx: &egui::Context) -> Option<egui::TextureHandle> {
-        let icon_path = PathBuf::from("assets/icon.ico");
+        let icon_path = exe_dir().join("assets/icon.ico");
         let img = image::open(&icon_path).ok()?;
         let rgba = img.to_rgba8();
         let (w, h) = rgba.dimensions();
@@ -235,8 +252,15 @@ impl eframe::App for KiraboshiApp {
 
         ctx.request_repaint();
 
-        if self.was_playing && self.audio.is_finished() {
+        if !self.standalone && self.was_playing && self.audio.is_finished() {
             self.play_next();
+        }
+        if self.standalone && self.was_playing && self.audio.is_finished() {
+            if self.loop_mode == LoopMode::One {
+                if let Some(current) = self.audio.current_file().cloned() {
+                    let _ = self.audio.play_song(&current);
+                }
+            }
         }
         self.was_playing = self.audio.is_playing();
 
@@ -407,7 +431,8 @@ impl eframe::App for KiraboshiApp {
 
                 let btn = egui::vec2(80.0, 28.0);
                 let btn_spacing = 4.0;
-                let total_w = btn.x * 4.0 + btn_spacing * 3.0;
+                let btn_count = if self.standalone { 3.0 } else { 4.0 };
+                let total_w = btn.x * btn_count + btn_spacing * (btn_count - 1.0);
                 ui.allocate_ui(egui::vec2(panel_width, 32.0), |ui| {
                     ui.horizontal(|ui| {
                         ui.add_space((panel_width - total_w) / 2.0);
@@ -429,22 +454,29 @@ impl eframe::App for KiraboshiApp {
                             self.seek_position = 0.0;
                         }
 
-                        let loop_text = match self.loop_mode {
-                            LoopMode::Off => "Loop",
-                            LoopMode::One => "Loop One",
-                            LoopMode::All => "Loop All",
-                        };
-                        if ui.add_sized(btn, egui::Button::new(loop_text)).clicked() {
-                            self.loop_mode = match self.loop_mode {
-                                LoopMode::Off => LoopMode::One,
-                                LoopMode::One => LoopMode::All,
-                                LoopMode::All => LoopMode::Off,
+                        if self.standalone {
+                            let loop_text = if self.loop_mode == LoopMode::One { "Loop On" } else { "Loop" };
+                            if ui.add_sized(btn, egui::Button::new(loop_text)).clicked() {
+                                self.loop_mode = if self.loop_mode == LoopMode::One { LoopMode::Off } else { LoopMode::One };
+                            }
+                        } else {
+                            let loop_text = match self.loop_mode {
+                                LoopMode::Off => "Loop",
+                                LoopMode::One => "Loop One",
+                                LoopMode::All => "Loop All",
                             };
-                        }
+                            if ui.add_sized(btn, egui::Button::new(loop_text)).clicked() {
+                                self.loop_mode = match self.loop_mode {
+                                    LoopMode::Off => LoopMode::One,
+                                    LoopMode::One => LoopMode::All,
+                                    LoopMode::All => LoopMode::Off,
+                                };
+                            }
 
-                        let shuf_text = if self.shuffle { "Shuffle On" } else { "Shuffle" };
-                        if ui.add_sized(btn, egui::Button::new(shuf_text)).clicked() {
-                            self.shuffle = !self.shuffle;
+                            let shuf_text = if self.shuffle { "Shuffle On" } else { "Shuffle" };
+                            if ui.add_sized(btn, egui::Button::new(shuf_text)).clicked() {
+                                self.shuffle = !self.shuffle;
+                            }
                         }
                     });
                 });
@@ -473,6 +505,7 @@ impl eframe::App for KiraboshiApp {
                     });
                 });
 
+                if !self.standalone {
                 ui.add_space(20.0);
                 ui.separator();
                 ui.add_space(8.0);
@@ -677,6 +710,7 @@ impl eframe::App for KiraboshiApp {
                             }
                         }
                     });
+                }
 
                 if let Some(error) = &self.error_message {
                     ui.add_space(8.0);
