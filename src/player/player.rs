@@ -293,26 +293,6 @@ impl eframe::App for KiraboshiApp {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
 
-                        let (max_rect, max_resp) = ui.allocate_exact_size(btn_size, egui::Sense::click());
-                        if max_resp.hovered() {
-                            ui.painter().rect_filled(max_rect, 0.0, egui::Color32::from_white_alpha(20));
-                        }
-                        let mc = max_rect.center();
-                        let icon_color = if max_resp.hovered() { egui::Color32::WHITE } else { egui::Color32::from_gray(180) };
-                        let is_maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
-                        if is_maximized {
-                            let s = 4.0;
-                            let offset = 2.0;
-                            ui.painter().rect_stroke(egui::Rect::from_min_size(egui::pos2(mc.x - s + offset, mc.y - s - offset), egui::vec2(s * 2.0 - offset, s * 2.0 - offset)), 0.0, egui::Stroke::new(1.2, icon_color), egui::StrokeKind::Outside);
-                            ui.painter().rect_stroke(egui::Rect::from_min_size(egui::pos2(mc.x - s, mc.y - s + offset), egui::vec2(s * 2.0 - offset, s * 2.0 - offset)), 0.0, egui::Stroke::new(1.2, icon_color), egui::StrokeKind::Outside);
-                        } else {
-                            let s = 5.0;
-                            ui.painter().rect_stroke(egui::Rect::from_center_size(mc, egui::vec2(s * 2.0, s * 2.0)), 0.0, egui::Stroke::new(1.2, icon_color), egui::StrokeKind::Outside);
-                        }
-                        if max_resp.clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!is_maximized));
-                        }
-
                         let (min_rect, min_resp) = ui.allocate_exact_size(btn_size, egui::Sense::click());
                         if min_resp.hovered() {
                             ui.painter().rect_filled(min_rect, 0.0, egui::Color32::from_white_alpha(20));
