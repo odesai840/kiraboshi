@@ -77,6 +77,17 @@ impl KiraboshiApp {
     pub fn new(cc: &eframe::CreationContext<'_>, file_arg: Option<PathBuf>) -> Self {
         let title_icon = Self::load_title_icon(&cc.egui_ctx);
         let standalone = file_arg.is_some();
+
+        let mut visuals = egui::Visuals::dark();
+        visuals.selection.bg_fill = egui::Color32::from_rgb(170, 120, 25);
+        visuals.selection.stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(220, 175, 55));
+        visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(145, 115, 35));
+        visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(160, 135, 60));
+        visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(195, 158, 50));
+        visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(215, 175, 65));
+        visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(220, 178, 60));
+        visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(230, 190, 75));
+        cc.egui_ctx.set_visuals(visuals);
         let mut app = Self {
             audio: AudioEngine::new(),
             volume: 0.5,
@@ -282,10 +293,10 @@ impl eframe::App for KiraboshiApp {
 
                         let (close_rect, close_resp) = ui.allocate_exact_size(btn_size, egui::Sense::click());
                         if close_resp.hovered() {
-                            ui.painter().rect_filled(close_rect, 0.0, egui::Color32::from_rgb(200, 50, 50));
+                            ui.painter().rect_filled(close_rect, 0.0, egui::Color32::from_rgb(210, 100, 20));
                         }
                         let cc = close_rect.center();
-                        let x_color = if close_resp.hovered() { egui::Color32::WHITE } else { egui::Color32::from_gray(180) };
+                        let x_color = if close_resp.hovered() { egui::Color32::from_rgb(255, 225, 120) } else { egui::Color32::from_rgb(185, 155, 65) };
                         let s = 5.0;
                         ui.painter().line_segment([egui::pos2(cc.x - s, cc.y - s), egui::pos2(cc.x + s, cc.y + s)], egui::Stroke::new(1.5, x_color));
                         ui.painter().line_segment([egui::pos2(cc.x + s, cc.y - s), egui::pos2(cc.x - s, cc.y + s)], egui::Stroke::new(1.5, x_color));
@@ -295,10 +306,10 @@ impl eframe::App for KiraboshiApp {
 
                         let (min_rect, min_resp) = ui.allocate_exact_size(btn_size, egui::Sense::click());
                         if min_resp.hovered() {
-                            ui.painter().rect_filled(min_rect, 0.0, egui::Color32::from_white_alpha(20));
+                            ui.painter().rect_filled(min_rect, 0.0, egui::Color32::from_rgba_premultiplied(50, 35, 5, 30));
                         }
                         let nc = min_rect.center();
-                        let min_color = if min_resp.hovered() { egui::Color32::WHITE } else { egui::Color32::from_gray(180) };
+                        let min_color = if min_resp.hovered() { egui::Color32::from_rgb(255, 220, 100) } else { egui::Color32::from_rgb(185, 155, 65) };
                         ui.painter().line_segment([egui::pos2(nc.x - 5.0, nc.y), egui::pos2(nc.x + 5.0, nc.y)], egui::Stroke::new(1.5, min_color));
                         if min_resp.clicked() {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
@@ -331,7 +342,27 @@ impl eframe::App for KiraboshiApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(24.0);
-                ui.label(egui::RichText::new("Kiraboshi").size(28.0).strong());
+                {
+                    let t = ctx.input(|i| i.time);
+                    let text = "Kiraboshi";
+                    let mut job = egui::text::LayoutJob::default();
+                    for (i, ch) in text.chars().enumerate() {
+                        let phase = (t * 3.0 - i as f64 * 0.5) as f32;
+                        let wave = phase.sin() * 0.5 + 0.5;
+                        let g = (150.0 + wave * 105.0) as u8;
+                        let b = (wave * 30.0) as u8;
+                        job.append(
+                            &ch.to_string(),
+                            0.0,
+                            egui::TextFormat {
+                                font_id: egui::FontId::new(28.0, egui::FontFamily::Proportional),
+                                color: egui::Color32::from_rgb(255, g, b),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                    ui.label(job);
+                }
                 ui.add_space(24.0);
 
                 ui.allocate_ui(egui::vec2(panel_width, 56.0), |ui| {
@@ -340,18 +371,18 @@ impl eframe::App for KiraboshiApp {
                             ui.label(
                                 egui::RichText::new("Now Playing")
                                     .size(12.0)
-                                    .color(egui::Color32::GRAY),
+                                    .color(egui::Color32::from_rgb(190, 155, 65))
                             );
                             ui.label(
                                 egui::RichText::new(Self::display_name(path))
                                     .size(18.0)
-                                    .strong(),
+                                    .color(egui::Color32::WHITE),
                             );
                         } else {
                             ui.label(
                                 egui::RichText::new("Now Playing")
                                     .size(12.0)
-                                    .color(egui::Color32::GRAY),
+                                    .color(egui::Color32::from_rgb(190, 155, 65))
                             );
                             ui.label(
                                 egui::RichText::new("No track loaded")
@@ -420,7 +451,7 @@ impl eframe::App for KiraboshiApp {
 
                         let play_text =
                             if self.audio.is_playing() { "Pause" } else { "Play" };
-                        if ui.add_sized(btn, egui::Button::new(play_text)).clicked() {
+                        if ui.add_sized(btn, egui::Button::new(egui::RichText::new(play_text).color(egui::Color32::from_gray(175)))).clicked() {
                             if self.audio.is_playing() {
                                 self.audio.pause();
                             } else {
@@ -429,14 +460,14 @@ impl eframe::App for KiraboshiApp {
                             }
                         }
 
-                        if ui.add_sized(btn, egui::Button::new("Stop")).clicked() {
+                        if ui.add_sized(btn, egui::Button::new(egui::RichText::new("Stop").color(egui::Color32::from_gray(175)))).clicked() {
                             self.audio.stop();
                             self.seek_position = 0.0;
                         }
 
                         if self.standalone {
                             let loop_text = if self.loop_mode == LoopMode::One { "Loop On" } else { "Loop" };
-                            if ui.add_sized(btn, egui::Button::new(loop_text)).clicked() {
+                            if ui.add_sized(btn, egui::Button::new(egui::RichText::new(loop_text).color(egui::Color32::from_gray(175)))).clicked() {
                                 self.loop_mode = if self.loop_mode == LoopMode::One { LoopMode::Off } else { LoopMode::One };
                             }
                         } else {
@@ -445,7 +476,7 @@ impl eframe::App for KiraboshiApp {
                                 LoopMode::One => "Loop One",
                                 LoopMode::All => "Loop All",
                             };
-                            if ui.add_sized(btn, egui::Button::new(loop_text)).clicked() {
+                            if ui.add_sized(btn, egui::Button::new(egui::RichText::new(loop_text).color(egui::Color32::from_gray(175)))).clicked() {
                                 self.loop_mode = match self.loop_mode {
                                     LoopMode::Off => LoopMode::One,
                                     LoopMode::One => LoopMode::All,
@@ -454,7 +485,7 @@ impl eframe::App for KiraboshiApp {
                             }
 
                             let shuf_text = if self.shuffle { "Shuffle On" } else { "Shuffle" };
-                            if ui.add_sized(btn, egui::Button::new(shuf_text)).clicked() {
+                            if ui.add_sized(btn, egui::Button::new(egui::RichText::new(shuf_text).color(egui::Color32::from_gray(175)))).clicked() {
                                 self.shuffle = !self.shuffle;
                             }
                         }
@@ -500,10 +531,10 @@ impl eframe::App for KiraboshiApp {
                         egui::Align2::CENTER_CENTER,
                         "Playlist",
                         egui::FontId::new(14.0, egui::FontFamily::Proportional),
-                        ui.visuals().strong_text_color(),
+                        egui::Color32::from_rgb(190, 155, 65),
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("+ Add Song").clicked() {
+                        if ui.button(egui::RichText::new("+ Add Song").color(egui::Color32::from_gray(175))).clicked() {
                             if let Some(path) = rfd::FileDialog::new()
                                 .add_filter("Audio Files", &["mp3", "wav", "ogg", "flac"])
                                 .pick_file()
@@ -569,14 +600,14 @@ impl eframe::App for KiraboshiApp {
                                         ui.painter().rect_filled(
                                             handle_rect,
                                             4.0,
-                                            egui::Color32::from_white_alpha(10),
+                                            egui::Color32::from_white_alpha(22),
                                         );
                                     }
                                     if handle_response.hovered() && !is_dragged {
                                         ui.painter().rect_filled(
                                             handle_rect,
                                             4.0,
-                                            egui::Color32::from_white_alpha(5),
+                                            egui::Color32::from_white_alpha(13),
                                         );
                                     }
 
@@ -585,7 +616,7 @@ impl eframe::App for KiraboshiApp {
                                     let line_color = if is_dragged {
                                         egui::Color32::from_rgb(255, 200, 80)
                                     } else {
-                                        egui::Color32::from_gray(120)
+                                        egui::Color32::from_rgb(140, 110, 45)
                                     };
                                     for dy in [-4.0, 0.0, 4.0] {
                                         ui.painter().line_segment(
@@ -600,7 +631,7 @@ impl eframe::App for KiraboshiApp {
                                     let color = if is_dragged {
                                         egui::Color32::from_rgb(255, 200, 80)
                                     } else if is_current {
-                                        egui::Color32::from_rgb(130, 180, 255)
+                                        egui::Color32::from_rgb(255, 210, 80)
                                     } else {
                                         ui.visuals().text_color()
                                     };
