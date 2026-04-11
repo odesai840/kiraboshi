@@ -292,26 +292,32 @@ impl eframe::App for KiraboshiApp {
                         let btn_size = egui::vec2(46.0, 30.0);
 
                         let (close_rect, close_resp) = ui.allocate_exact_size(btn_size, egui::Sense::click());
-                        if close_resp.hovered() {
+                        let close_hovered = ctx.input(|i| i.pointer.hover_pos().is_some_and(|p| close_rect.contains(p)));
+                        if close_hovered {
                             ui.painter().rect_filled(close_rect, 0.0, egui::Color32::from_rgb(210, 100, 20));
                         }
                         let cc = close_rect.center();
-                        let x_color = if close_resp.hovered() { egui::Color32::from_rgb(255, 225, 120) } else { egui::Color32::from_rgb(185, 155, 65) };
+                        let x_color = if close_hovered { egui::Color32::from_rgb(255, 225, 120) } else { egui::Color32::from_rgb(185, 155, 65) };
                         let s = 5.0;
                         ui.painter().line_segment([egui::pos2(cc.x - s, cc.y - s), egui::pos2(cc.x + s, cc.y + s)], egui::Stroke::new(1.5, x_color));
                         ui.painter().line_segment([egui::pos2(cc.x + s, cc.y - s), egui::pos2(cc.x - s, cc.y + s)], egui::Stroke::new(1.5, x_color));
-                        if close_resp.clicked() {
+                        if close_resp.is_pointer_button_down_on()
+                            && ctx.input(|i| i.pointer.any_pressed())
+                        {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
 
                         let (min_rect, min_resp) = ui.allocate_exact_size(btn_size, egui::Sense::click());
-                        if min_resp.hovered() {
+                        let min_hovered = ctx.input(|i| i.pointer.hover_pos().is_some_and(|p| min_rect.contains(p)));
+                        if min_hovered {
                             ui.painter().rect_filled(min_rect, 0.0, egui::Color32::from_rgba_premultiplied(50, 35, 5, 30));
                         }
                         let nc = min_rect.center();
-                        let min_color = if min_resp.hovered() { egui::Color32::from_rgb(255, 220, 100) } else { egui::Color32::from_rgb(185, 155, 65) };
+                        let min_color = if min_hovered { egui::Color32::from_rgb(255, 220, 100) } else { egui::Color32::from_rgb(185, 155, 65) };
                         ui.painter().line_segment([egui::pos2(nc.x - 5.0, nc.y), egui::pos2(nc.x + 5.0, nc.y)], egui::Stroke::new(1.5, min_color));
-                        if min_resp.clicked() {
+                        if min_resp.is_pointer_button_down_on()
+                            && ctx.input(|i| i.pointer.any_pressed())
+                        {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                         }
                     });
@@ -327,7 +333,9 @@ impl eframe::App for KiraboshiApp {
                         ui.id().with("title_bar_drag"),
                         egui::Sense::click_and_drag(),
                     );
-                    if title_bar_response.dragged() {
+                    if title_bar_response.is_pointer_button_down_on()
+                        && ctx.input(|i| i.pointer.any_pressed())
+                    {
                         ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                     }
                     if title_bar_response.double_clicked() {
